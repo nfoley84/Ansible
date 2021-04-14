@@ -1,0 +1,51 @@
+---
+    - name: Environment Variables
+      include_vars:
+        file: secrets.yaml
+        name: secret
+
+    - name: CCELite Error Handling  on vCenter {{ site.name }}
+      block:
+        - name: Manage Network based firewall permissions for ESXi {{ vsphere.name }}
+          community.vmware.vmware_host_firewall_manager:
+            hostname: '{{ site.name }}'
+            username: '{{ secret.username }}'
+            password: '{{ secret.password }}'
+            esxi_hostname: '{{ vsphere.name }}'
+            validate_certs: no
+            rules:
+            - name: httpClient
+              enabled: True
+              allowed_hosts:
+                all_ip: False
+                ip_address: 
+                  - '{{ site.address }}'
+                  
+            - name: webAccess
+              enabled: True
+              allowed_hosts:
+                all_ip: False
+                ip_address:
+                  - '{{ site.address }}'
+
+            - name: vSphereClient
+              enabled: True
+              allowed_hosts:
+                all_ip: False
+                ip_address:
+                  - '{{ site.address }}'
+      
+          delegate_to: localhost
+          register: info
+
+        - name: Sending Email Notification for Changes on {{ vpshere.name }}
+          mail:
+            host: 
+            sender: ''
+            to: ''
+            subject: ''
+            body: 'ESXi Firewall Rules have been Reverted back on ESXi Host: {{ vsphere.name }} within vCenter {{ site.name }}'
+          delegate_to: localhost
+          when: info.changed
+      ignore_errors: true 
+
