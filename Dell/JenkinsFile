@@ -1,0 +1,58 @@
+node('Salt') {
+    
+stage('Git Clone') {
+    git credentialsId: '', url: ''
+}
+
+stage('Install Ansible Galaxy Red Fish & EMC Openmanage '){
+    sh 'ansible-galaxy collection install community.general -f'
+    sh 'ansible-galaxy collection install dellemc.openmanage -f'
+}
+
+stage(' Configure NTP'){
+withCredentials([usernamePassword(credentialsId: 'iDRAC', passwordVariable: 'pass', usernameVariable: 'user')]) {
+    ansiblePlaybook becomeUser: null, extras: '-e user=$user -e password=$pass -e idrac_ip=$ipaddress', playbook: 'blade/NTP_Settings.yaml', sudoUser: null
+}
+}
+
+stage('Configure SNMP Trap') {
+  withCredentials([usernamePassword(credentialsId: 'iDRAC', passwordVariable: 'pass', usernameVariable: 'user')]) {
+    ansiblePlaybook becomeUser: null, extras: '-e user=$user -e pass=$pass -e idrac_ip=$ipaddress', playbook: 'blade/snmp_trap.yaml', sudoUser: null
+}
+}
+
+stage('idrac nic') {
+  withCredentials([usernamePassword(credentialsId: 'iDRAC', passwordVariable: 'pass', usernameVariable: 'user')]) {
+    ansiblePlaybook becomeUser: null, extras: '-e user=$user -e pass=$pass -e idrac_ip=$ipaddress', playbook: 'blade/AutoDiscovery.yaml', sudoUser: null
+}
+}
+
+stage('Disable IPV6') {
+  withCredentials([usernamePassword(credentialsId: 'iDRAC', passwordVariable: 'pass', usernameVariable: 'user')]) {
+    ansiblePlaybook becomeUser: null, extras: '-e user=$user -e pass=$pass -e idrac_ip=$ipaddress', playbook: 'blade/disable_ipv6.yaml', sudoUser: null
+}
+}
+
+stage('Enable Auto Discovery'){
+  withCredentials([usernamePassword(credentialsId: 'iDRAC', passwordVariable: 'pass', usernameVariable: 'user')]) {
+    ansiblePlaybook becomeUser: null, extras: '-e user=$user -e pass=$pass -e idrac_ip=$ipaddress', playbook: 'blade/AutoDiscovery.yaml', sudoUser: null
+}
+}
+
+stage('PXE Enabled'){
+    withCredentials([usernamePassword(credentialsId: 'iDRAC', passwordVariable: 'pass', usernameVariable: 'user')]) {
+    ansiblePlaybook becomeUser: null, extras: '-e user=$user -e pass=$pass -e idrac_ip=$ipaddress', playbook: 'blade/idrac-pxe-enable.yaml', sudoUser: null
+}
+}
+
+stage('idrac one Time PXE boot'){
+    withCredentials([usernamePassword(credentialsId: 'iDRAC', passwordVariable: 'pass', usernameVariable: 'user')]) {
+    ansiblePlaybook becomeUser: null, extras: '-e user=$user -e pass=$pass -e idrac_ip=$ipaddress', playbook: 'blade/idrac_onetime.yaml', sudoUser: null
+}
+}
+stage('Adding iDrac to OME'){
+    withCredentials([usernamePassword(credentialsId: 'iDRAC', passwordVariable: 'pass', usernameVariable: 'user')]) {
+    ansiblePlaybook becomeUser: null, extras: '-e idrac_ip=$ipaddress', playbook: '/srv/ansible/Dell/ome.yaml', sudoUser: null
+}
+}
+}
