@@ -1,0 +1,55 @@
+  
+---
+- hosts: localhost
+  connection: local
+  name: Set Manager SMNP settings
+  gather_facts: False
+
+  tasks:
+  - name: Configure SNMP Trap
+    community.general.idrac_redfish_config:
+      category: Manager
+      command: SetManagerAttributes
+      resource_id: iDRAC.Embedded.1
+      manager_attributes:
+        SNMP.1.AgentEnable: Enabled
+        SNMP.1.AgentCommunity: "public"
+        SNMP.1.TrapFormat: "SNMPv1"
+        SNMP.1.SNMPProtocol: "All"
+        SNMP.1.DiscoveryPort: 161
+        SNMP.1.AlertPort: 162
+      baseuri: 
+      username: 
+      password: 
+      timeout: 15
+
+  - name: Configure IPMILAN
+    community.general.idrac_redfish_config:
+      category: Manager
+      command: SetManagerAttributes
+      resource_id: iDRAC.Embedded.1
+      manager_attributes:
+        IPMILan.1.Enable: Enabled
+        IPMILan.1.PrivLimit: Administrator
+        IPMILan.1.EncryptionKey: ""
+        IPMILan.1.CommunityName: ""
+        IPMILan.1.AlertEnable: Enabled 
+        EmailAlert.1.Enable: Enabled
+        EmailAlert.1.Address: ""
+      baseuri: 
+      username: 
+      password: 
+      timeout: 15      
+
+  - name: Configure SNMP Alert 
+    community.general.idrac_redfish_config:
+      category: Manager
+      command: SetManagerAttributes
+      resource_id: iDRAC.Embedded.1
+      manager_attributes:
+        SNMPAlert.1.Destination: ""
+        SNMPAlert.1.State: Enabled
+      baseuri: 
+      username: 
+      password: 
+      timeout: 15      
