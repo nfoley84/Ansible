@@ -1,0 +1,105 @@
+---
+- hosts: localhost
+  connection: local
+  name: Enable PXE on PCIe NIC
+  gather_facts: False
+  vars:
+    idrac_ip: ""
+    usr: ""
+    pswd: ""
+
+    pxe_devices:
+      - NIC.Integrated.1-1-1 
+      - NIC.Integrated.1-3-1
+      - NIC.Slot.5-1-1
+      - NIC.ChassisSlot.2-1-1 # FX2 PCIe NIC
+      - NIC.ChassisSlot.4-1-1 # FX2 PCIe NIC
+      - NIC.ChassisSlot.6-1-1 # FX2 PCIe NIC
+      - NIC.ChassisSlot.8-1-1 # FX2 PCIe NIC
+
+  tasks:
+    - name: Get BIOS Attributes
+      community.general.redfish_info: 
+        baseuri: "{{ idrac_ip }}"
+        username: "{{ usr }}"
+        password: "{{ pswd }}"
+        category: Systems
+        command: GetBiosAttributes
+      register: result
+
+    - name: Set BootMode
+      set_fact:
+        boot_mode: "{{ result.redfish_facts.bios_attribute.entries.0.1.BootMode }}"
+
+    - name: Copy Template To File
+      template:
+        src: idrac-pxe-enable.xml.j2 # Ansible will search for this file in a templates directory by default
+        dest: /srv/ansible/Dell/idrac-pxe-enable.xml
+
+    - name: Import Server Configuration Profile
+      dellemc.openmanage.idrac_server_config_profile:
+        idrac_ip: "{{ idrac_ip }}"
+        idrac_user: "{{ usr }}"
+        idrac_password: "{{ pswd }}"
+        share_name: "/srv/ansible/Dell"
+        command: "import"
+        scp_file: idrac-pxe-enable.xml
+        scp_components: "ALL"
+        shutdown_type: "Graceful"
+        job_wait: True
+      register: result
+      ignore_errors: True 
+      
+    - debug:
+        var: result
+
+    - name: UEFI
+      block:
+
+        - name: Set PxeDev1EnDis (UEFI)
+          community.general.redfish_config:
+            baseuri: "{{ idrac_ip }}"
+            username: "{{ usr }}"
+            password: "{{ pswd }}"
+            category: Systems
+            command: SetBiosAttributes
+            bios_attributes:
+              PxeDev1EnDis: "Enabled"
+
+        - name: Set PxeDev1Interface (LegacyBoot)
+          community.general.redfish_config:
+            baseuri: "{{ idrac_ip }}"
+            username: "{{ usr }}"
+            password: "{{ pswd }}"
+            category: Systems
+            command: SetBiosAttributes
+            bios_attributes:
+              PxeDev1Interface: "{{ item }}"
+          loop: "{{ pxe_devices }}" # FX2 Support. Sleds will have different PCIe NIC FQDD depending on the slot. 
+          ignore_errors: True # FX2 Support. The PCIe NICs that aren't in a slot will fail. The one that is present will succeed. 
+          register: result_uefi
+
+      when: boot_mode == "Uefi" # Only run block when boot mode is Uefi
+
+    - name: Create BIOS Config job
+      community.general.idrac_redfish_command:
+        category: Systems
+        command: CreateBiosConfigJob
+        baseuri: "{{ idrac_ip }}"
+        username: "{{ usr }}"
+        password: "{{ pswd }}"
+      when: result.changed or result_uefi.changed # Only run when things have changed
+
+    - name: Restart sytem power gracefully
+      community.general.redfish_command:
+        category: Systems
+        command: PowerGracefulRestart
+        baseuri: "{{ idrac_ip }}"
+        username: "{{ usr }}"
+        password: "{{ pswd }}"
+      when: result.changed or result_uefi.changed # Only run when things have changed
+
+    - name: Cleanup Files
+      file:
+        path: "/srv/ansible/Dell/idrac-pxe-enable.xml"
+        state: absent
