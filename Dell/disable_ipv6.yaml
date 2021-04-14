@@ -1,0 +1,32 @@
+  
+---
+- hosts: localhost
+  connection: local
+  name: Set Manager NTP settings
+  gather_facts: False
+
+  tasks:
+  - name: Enable NTP
+    community.general.idrac_redfish_config:
+      category: Manager
+      command: SetManagerAttributes
+      resource_id: iDRAC.Embedded.1
+      manager_attributes:
+        IPv6.1.Enable: Disabled
+        IPv4.1.Enable: Enabled
+        IPv4.1.DHCPEnable: Enabled
+        IPv4Static.1.Netmask: 255.255.255.0
+        NIC.1.Enable: Enabled
+        NIC.1.Selection: Dedicated
+        NIC.1.Failover: None
+        NIC.1.Autoneg: Enabled
+        NIC.1.Duplex: Full
+        NIC.1.DNSRegister: Enabled
+        NICStatic.1.DNSDomainFromDHCP: Enabled
+        IPv4Static.1.DNSFromDHCP: Enabled
+      baseuri: {{ ip_addr }}
+      username: {{ user }}
+      password: {{ pass }}
+      timeout: 15
+
+
