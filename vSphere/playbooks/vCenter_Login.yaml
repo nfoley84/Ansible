@@ -1,0 +1,30 @@
+---
+    - name: CCELITE Firewall Playbook Block Error Handling
+      block:
+        - name: Log into vCenter Rest API 
+          uri:
+            url: "https://{{site}}/rest/com/vmware/cis/session"
+            force_basic_auth: yes
+            method: POST
+            user: "{{username}}"
+            password: "{{password}}"
+            status_code: 200
+            validate_certs: no
+          register: login
+
+        - name: Get All ESXi hostnames
+          uri:
+            url: "https://{{site}}/rest/vcenter/host"
+            force_basic_auth: yes
+            validate_certs: no
+            headers:
+              Cookie: "{{login.set_cookie}}"
+          register: vchosts
+        
+        - name: Connecting to vCenter {{ site }}
+          include_tasks: "{{ playbook }}"
+          with_items:
+              - "{{ vchosts.json.value }}" 
+          loop_control:
+            loop_var: vsphere
+      ignore_errors: true
