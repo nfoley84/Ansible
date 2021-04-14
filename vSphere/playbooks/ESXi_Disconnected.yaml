@@ -1,0 +1,30 @@
+---
+    - name: Block Code for Error Handling
+      block:
+        - name: Getting Facts on Power State for ESXi {{ vsphere.name }}
+          community.vmware.vmware_host_facts:
+            hostname: "{{ site }}"
+            username: '{{ username }}'
+            password: '{{ password }}'
+            validate_certs: no
+            esxi_hostname: '{{ vsphere.name }}'
+            schema: vsphere
+            properties:
+              - runtime.connectionState
+              - runtime.powerState
+          register: info
+          
+        - debug:
+            var: ansible_facts.runtime.connectionState
+
+        - name: Sending Email for ESXi {{ vpshere.name }}
+          mail:
+              host: 
+              sender: ''
+              to: ''
+              subject: 'ESXi Host: {{ vsphere.name }} is in Disconnected State'
+              body: ',
+                     It appears that a ESXi Host: {{ vsphere.name }}, is in a Status of "Disconnected" within vCenter: {{ site }}
+          delegate_to: localhost
+          when: ansible_facts.runtime.connectionState == 'disconnected'
+      ignore_errors: true
