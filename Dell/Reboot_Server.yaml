@@ -1,0 +1,18 @@
+  
+---
+- hosts: localhost
+  connection: local
+  name: Set Manager NTP settings
+  gather_facts: False
+
+  tasks:
+  - name: Reboot System
+    community.general.redfish_command:
+      category: Systems
+      command: PowerGracefulRestart
+      baseuri: 
+      username: 
+      password: 
+
+
+      
