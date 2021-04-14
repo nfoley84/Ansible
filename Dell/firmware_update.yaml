@@ -1,0 +1,26 @@
+---
+  - hosts: localhost
+    connection: local
+    name: Update Firmware Inventory
+    gather_facts: False
+
+    tasks:
+    - name: Update firmware from repository on a internally hosted HTTP repository.
+      idrac_firmware:
+        idrac_ip: {{ ip_addr }}
+        idrac_user: {{user}}
+        idrac_password: {{pass}}
+        share_name: ""
+        share_user: "share_user_name"
+        share_password: ""
+        share_mnt: "/mnt/share"
+        reboot: True
+        job_wait: True
+        apply_update: True
+        catalog_file_name: "Catalog.xml"
+      register: FirmwareUpdate
+
+    - debug:
+        var: FirmwareUpdate
+
+
