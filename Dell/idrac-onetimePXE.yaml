@@ -1,0 +1,92 @@
+---
+- hosts: localhost
+  connection: local
+  name: Set One Time Boot to PXE
+  gather_facts: False
+  vars:
+    idrac_ip: ""
+    usr: ""
+    pswd: ""
+
+    pxe_devices:
+      - NIC.Slot.1-1-1 # PCIe NIC
+      - NIC.ChassisSlot.2-1-1 # FX2 PCIe NIC
+      - NIC.ChassisSlot.4-1-1 # FX2 PCIe NIC
+      - NIC.ChassisSlot.6-1-1 # FX2 PCIe NIC
+      - NIC.ChassisSlot.8-1-1 # FX2 PCIe NIC
+  tasks:
+    - name: Get BIOS Attributes
+      community.general.redfish_info: 
+        baseuri: "{{ idrac_ip }}"
+        username: "{{ usr }}"
+        password: "{{ pswd }}"
+        category: Systems
+        command: GetBiosAttributes
+      register: result_attributes
+
+    - name: Get BIOS boot mode and set fact boot_mode
+      set_fact:
+        boot_mode: "{{ result_attributes.redfish_facts.bios_attribute.entries.0.1.BootMode }}"
+
+    - name: UEFI
+      block:
+
+        - name: Set OneTimeBoot (UEFI)
+          community.general.redfish_config:
+            baseuri: "{{ idrac_ip }}"
+            username: "{{ usr }}"
+            password: "{{ pswd }}"
+            category: Systems
+            command: SetBiosAttributes
+            bios_attributes:
+              OneTimeBootMode: "OneTimeUefiBootSeq"
+              OneTimeUefiBootSeqDev: "NIC.PxeDevice.1-1"
+          register: result_uefi
+
+      when: boot_mode == "Uefi" # Only run block when boot mode is Uefi
+
+    - name: LegacyBoot
+      block:
+      
+        - name: Set OneTimeBootMode (LegacyBoot)
+          community.general.redfish_config:
+            baseuri: "{{ idrac_ip }}"
+            username: "{{ usr }}"
+            password: "{{ pswd }}"
+            category: Systems
+            command: SetBiosAttributes
+            bios_attributes:
+              OneTimeBootMode: "OneTimeBootSeq"
+
+        - name: Set OneTimeBootSeqDev (LegacyBoot)
+          community.general.redfish_config:
+            baseuri: "{{ idrac_ip }}"
+            username: "{{ usr }}"
+            password: "{{ pswd }}"
+            category: Systems
+            command: SetBiosAttributes
+            bios_attributes:
+              OneTimeBootSeqDev: "{{ item }}"
+          loop: "{{ pxe_devices }}" # FX2 Support. Sleds will have different PCIe NIC FQDD depending on the slot. 
+          ignore_errors: True # FX2 Support. The PCIe NICs that aren't in a slot will fail. The one that is present will succeed. 
+          register: result_bios
+
+      when: boot_mode == "Bios" # Only run block when boot mode is Bios
+      
+    - name: Create BIOS Config job
+      community.general.idrac_redfish_command:
+        baseuri: "{{ idrac_ip }}"
+        username: "{{ usr }}"
+        password: "{{ pswd }}"
+        category: Systems
+        command: CreateBiosConfigJob
+      when: result_uefi.changed or result_bios.changed # Only run when things have changed
+  
+    - name: Restart sytem power gracefully
+      community.general.redfish_command:
+        category: Systems
+        command: PowerGracefulRestart
+        baseuri: "{{ idrac_ip }}"
+        username: "{{ usr }}"
+        password: "{{ pswd }}"
+      when: result_uefi.changed or result_bios.changed # Only run when things have changed
