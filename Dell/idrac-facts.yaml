@@ -1,0 +1,115 @@
+
+- hosts: localhost
+  gather_facts: False
+  connection: local
+
+  tasks:
+    - name: Get manager facts
+      community.general.redfish_info: 
+        baseuri: "{{ hostvars[inventory_hostname].oob_host }}"
+        username: "{{ oob_user }}"
+        password: "{{ oob_password }}"
+        category: Manager
+        command: GetManagerNicInventory
+      register: result
+
+    - copy:
+        content: "{{ result }}"
+        dest: /tmp/idrac-redfish-manager-facts.json
+
+    - name: Get IPV4 Address
+      set_fact:
+        ipv4_address: "{{ result.redfish_facts.manager_nics.entries.0.1.0.IPv4Addresses.0.Address }}"
+        mac_address: "{{ result.redfish_facts.manager_nics.entries.0.1.0.PermanentMACAddress }}"
+
+    - name: Print ipv4_address
+      ansible.builtin.debug:
+        var: ipv4_address
+        
+    - name: Print mac_address
+      ansible.builtin.debug:
+        var: mac_address
+
+    - name: Get system facts
+      community.general.redfish_info: 
+        baseuri: "{{ hostvars[inventory_hostname].oob_host }}"
+        username: "{{ oob_user }}"
+        password: "{{ oob_password }}"
+        category: Systems
+      register: result
+
+    - copy:
+        content: "{{ result }}"
+        dest: /tmp/idrac-redfish-system-facts.json
+
+    - name: Get Model
+      set_fact:
+        device_model: "{{ result.redfish_facts.system.entries.0.1.Model }}"
+
+    - name: Print device_model
+      ansible.builtin.debug:
+        var: device_model
+
+    - name:
+      debug:
+        msg: "Rackmount"
+      when: device_model is match("PowerEdge R.*")
+
+    - name:
+      debug:
+        msg: "FX2"
+      when: device_model is match("PowerEdge FC.*")
+
+    - name: Get bios attributes
+      community.general.redfish_info : 
+        baseuri: "{{ hostvars[inventory_hostname].oob_host }}"
+        username: "{{ oob_user }}"
+        password: "{{ oob_password }}"
+        category: Systems
+        command: GetBiosAttributes
+      register: result
+
+#    - name: Print all available facts
+#      ansible.builtin.debug:
+#        var: result
+#
+#    - copy:
+#        content: "{{ result }}"
+#        dest: /tmp/idrac-redfish-facts.json
+
+    - name: Get BootMode
+      set_fact:
+        boot_mode: "{{ result.redfish_facts.bios_attribute.entries.0.1.BootMode }}"
+
+    - name: Print boot_mode
+      ansible.builtin.debug:
+        var: boot_mode
+
+    - name: Get manager attributes
+      community.general.idrac_redfish_info : 
+        baseuri: "{{ hostvars[inventory_hostname].oob_host }}"
+        username: "{{ oob_user }}"
+        password: "{{ oob_password }}"
+        category: Manager
+        command: GetManagerAttributes
+      register: result
+
+#    - name: Print all available facts
+#      ansible.builtin.debug:
+#        var: result
+#
+#    - copy:
+#        content: "{{ result }}"
+#        dest: /tmp/idrac-facts.json
+
+    - name: Set iDRAC Fact
+      ansible.builtin.set_fact:
+        idrac_attributes: "{{ result.redfish_facts.entries | selectattr('Id', 'equalto', 'iDRACAttributes') | list | first }}"
+    
+#    - name: Display all iDRAC attributes
+#      ansible.builtin.debug:
+#        var: idrac_attributes
+
+    - name: Print NIC.1.DNSRacName
+      ansible.builtin.debug:
+        var: idrac_attributes.Attributes['NIC.1.DNSRacName']
