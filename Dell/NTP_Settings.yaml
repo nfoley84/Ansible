@@ -1,0 +1,25 @@
+  
+---
+- hosts: localhost
+  connection: local
+  name: Set Manager NTP settings
+  gather_facts: False
+
+  tasks:
+  - name: Enable NTP
+    community.general.idrac_redfish_config:
+      category: Manager
+      command: SetManagerAttributes
+      resource_id: iDRAC.Embedded.1
+      manager_attributes:
+        NTPConfigGroup.1.NTPEnable: Enabled
+        Time.1.Timezone: "UTC"
+        NTPConfigGroup.1.NTP1: 
+        NTPConfigGroup.1.NTP2:  
+        NTPConfigGroup.1.NTP3: 
+      baseuri: 
+      username: 
+      password: 
+      timeout: 15
+
+      
