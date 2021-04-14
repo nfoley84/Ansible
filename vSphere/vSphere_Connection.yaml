@@ -1,0 +1,15 @@
+---
+- name: test
+  hosts: localhost
+  connection: local
+
+  tasks:
+  - name: Connecting to vCenters
+    include_tasks: vCenter_Login.yaml
+    with_items:
+      - 
+
+    loop_control:
+      loop_var: site
+    
+    
